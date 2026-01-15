@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>TI BA II Plus</title>
+    <style>
+        :root {
+            --bg-body: #1a1a1a;
+            --calc-body: #222222;
+            --faceplate: #b0b0b0;
+            --screen-bg: #cbbfa6;
+            --text-gold: #d4af37;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            /* Prevent bounce scroll on iOS */
+            overflow: hidden; 
+            touch-action: manipulation;
+        }
+
+        .calculator {
+            width: 100%;
+            max-width: 360px; /* Limits width on iPads */
+            height: 95vh;     /* Fits nicely on mobile screens */
+            max-height: 800px;
+            background-color: var(--calc-body);
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 2px solid #444;
+            /* iOS Safe Area for notch phones */
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* Faceplate */
+        .faceplate {
+            background: linear-gradient(180deg, #ccc, #999);
+            border-radius: 10px 10px 0 0;
+            padding: 15px 10px;
+            text-align: center;
+            border: 1px solid #777;
+            flex-shrink: 0; /* Keeps header size fixed */
+        }
+
+        .brand {
+            font-family: 'Times New Roman', serif;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #111;
+            margin-bottom: 2px;
+            letter-spacing: 1px;
+        }
+        
+        .sub-brand {
+            font-size: 0.6rem;
+            color: #111;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 5px;
+        }
+
+        /* Screen */
+        .screen-container {
+            background-color: var(--screen-bg);
+            border: 2px solid #555;
+            border-radius: 4px;
+            padding: 5px 8px;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .indicators {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.55rem;
+            font-family: monospace;
+            color: #333;
+            height: 10px;
+            margin-bottom: 2px;
+        }
+        
+        .indicator { opacity: 0; transition: opacity 0.1s; }
+        .indicator.active { opacity: 1; font-weight: bold; }
+
+        .display-main {
+            font-family: 'Courier New', monospace;
+            font-size: 2.2rem;
+            text-align: right;
+            color: #000;
+            letter-spacing: -1px;
+            overflow: hidden;
+            white-space: nowrap;
+            font-weight: bold;
+            line-height: 1.1;
+        }
+
+        /* Keypad Layout */
+        .keyboard-area {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-grow: 1; /* Fills remaining space */
+            justify-content: space-evenly; /* Spreads buttons evenly */
+        }
+
+        .row {
+            display: grid;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .cols-4 { grid-template-columns: repeat(4, 1fr); }
+        .cols-5 { grid-template-columns: repeat(5, 1fr); }
+
+        /* Button Styling */
+        button {
+            /* iOS Reset */
+            -webkit-appearance: none; 
+            appearance: none;
+            
+            width: 100%;
+            height: 42px; /* Touch friendly height */
+            border-radius: 6px;
+            border: none;
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: white;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.6), inset 1px 1px 1px rgba(255,255,255,0.2);
+            position: relative;
+            padding: 0;
+            /* Crucial for fast tap on iOS */
+            touch-action: manipulation; 
+        }
+
+        /* Active State for Touch */
+        button:active {
+            transform: translateY(2px);
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5);
+        }
+
+        /* Secondary Labels */
+        .btn-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .sec-label {
+            color: var(--text-gold);
+            font-size: 0.55rem;
+            margin-bottom: 2px;
+            font-weight: bold;
+            text-align: center;
+            height: 9px;
+            width: 100%;
+            white-space: nowrap;
+            overflow: visible;
+        }
+
+        /* Colors */
+        .btn-black { background: linear-gradient(#333, #111); }
+        .btn-grey { background: linear-gradient(#777, #555); }
+        .btn-white { background: linear-gradient(#f0f0f0, #ccc); color: black; }
+        .btn-gold { background: linear-gradient(#e6c968, #d4af37); color: black; }
+
+        /* Tiny tweaks for top row to fit */
+        .row-top button { height: 35px; font-size: 0.7rem; }
+
+        /* Media Query for very small screens (iPhone SE) */
+        @media (max-height: 670px) {
+            button { height: 35px; }
+            .faceplate { padding: 10px; }
+            .display-main { font-size: 1.8rem; }
+            .sec-label { font-size: 0.5rem; margin-bottom: 1px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="calculator">
+        <div class="faceplate">
+            <div class="brand">BA II <span style="font-style: italic;">Plus</span></div>
+            <div class="brand" style="font-size: 0.7rem; margin-top: -3px;">TEXAS INSTRUMENTS</div>
+            
+            <div class="screen-container">
+                <div class="indicators">
+                    <span id="ind-2nd" class="indicator">2nd</span>
+                    <span id="ind-cpt" class="indicator">CPT</span>
+                    <span id="ind-enter" class="indicator">ENTER</span>
+                    <span id="ind-tvm" class="indicator">TVM</span>
+                    <span id="ind-batt" class="indicator">BATT</span>
+                </div>
+                <div class="display-main" id="display">0.00</div>
+            </div>
+        </div>
+
+        <div class="keyboard-area">
+            
+            <div class="row cols-5 row-top">
+                <div class="btn-wrapper"><div class="sec-label">QUIT</div><button class="btn-black" onclick="handleInput('CPT')">CPT</button></div>
+                <div class="btn-wrapper"><div class="sec-label">SET</div><button class="btn-black" onclick="handleInput('ENTER')">ENTER</button></div>
+                <div class="btn-wrapper"><div class="sec-label">DEL</div><button class="btn-black" onclick="handleInput('UP')">↑</button></div>
+                <div class="btn-wrapper"><div class="sec-label">INS</div><button class="btn-black" onclick="handleInput('DOWN')">↓</button></div>
+                <div class="btn-wrapper"><div class="sec-label"></div><button class="btn-black" onclick="handleInput('ON')">ON/OFF</button></div>
+            </div>
+
+            <div class="row cols-4">
+                <div class="btn-wrapper"><div class="sec-label"></div><button class="btn-gold" onclick="handleInput('2ND')">2ND</button></div>
+                <div class="btn-wrapper"><div class="sec-label"></div><button class="btn-black" onclick="handleInput('CF')">CF</button></div>
+                <div class="btn-wrapper"><div class="sec-label"></div><button class="btn-black" onclick="handleInput('NPV')">NPV</button></div>
+                <div class="btn-wrapper"><div class="sec-label"></div><button class="btn-black" onclick="handleInput('IRR')">IRR</button></div>
+            </div>
+
+            <div class="row cols-5">
+                <div class="btn-wrapper"><div class="sec-label">xP/Y</div><button class="btn-white" onclick="handleInput('N')">N</button></div>
+                <div class="btn-wrapper"><div class="sec-label">P/Y</div><button class="btn-white" onclick="handleInput('IY')">I/Y</button></div>
+                <div class="btn-wrapper"><div class="sec-label">AMORT</div><button class="btn-white" onclick="handleInput('PV')">PV</button></div>
+                <div class="btn-wrapper"><div class="sec-label">BGN</div><button class="btn-white" onclick="handleInput('PMT')">PMT</button></div>
+                <div class="btn-wrapper"><div class="sec-label">CLR TVM</div><button class="btn-white" onclick="handleInput('FV')">FV</button></div>
+            </div>
+
+            <div class="row cols-4">
+                <div class="btn-wrapper"><div class="sec-label">K</div><button class="btn-black" onclick="handleInput('%')">%</button></div>
+                <div class="btn-wrapper"><div class="sec-label">sin</div><button class="btn-black" onclick="handleInput('SQRT')">√x</button></div>
+                <div class="btn-wrapper"><div class="sec-label">cos</div><button class="btn-black" onclick="handleInput('SQR')">x²</button></div>
+                <div class="btn-wrapper"><div class="sec-label">tan</div><button class="btn-black" onclick="handleInput('INV_X')">1/x</button></div>
+            </div>
+
+            <div class="row cols-4">
+                <div class="btn-wrapper"><div class="sec-label">HYP</div><button class="btn-black" onclick="handleInput('INV')">INV</button></div>
+                <div class="btn-wrapper"><div class="sec-label">sin</div><button class="btn-black" onclick="handleInput('(')">(</button></div>
+                <div class="btn-wrapper"><div class="sec-label">cos</div><button class="btn-black" onclick="handleInput(')')">)</button></div>
+                <div class="btn-wrapper"><div class="sec-label">tan</div><button class="btn-black" onclick="handleInput('/')">÷</button></div>
+            </div>
+
+            <div class="row cols-5">
+                <div class="btn-wrapper"><div class="sec-label">e^x</div><button class="btn-black" onclick="handleInput('LN')">LN</button></div>
+                <div class="btn-wrapper"><div class="sec-label">DATA</div><button class="btn-grey" onclick="handleInput('7')">7</button></div>
+                <div class="btn-wrapper"><div class="sec-label">STAT</div><button class="btn-grey" onclick="handleInput('8')">8</button></div>
+                <div class="btn-wrapper"><div class="sec-label">BOND</div><button class="btn-grey" onclick="handleInput('9')">9</button></div>
+                <div class="btn-wrapper"><div class="sec-label">y^x</div><button class="btn-black" onclick="handleInput('-')">-</button></div>
+            </div>
+
+            <div class="row cols-5">
+                <div class="btn-wrapper"><div class="sec-label">ROUND</div><button class="btn-black" onclick="handleInput('STO')">STO</button></div>
+                <div class="btn-wrapper"><div class="sec-label">DEPR</div><button class="btn-grey" onclick="handleInput('4')">4</button></div>
+                <div class="btn-wrapper"><div class="sec-label">∆%</div><button class="btn-grey" onclick="handleInput('5')">5</button></div>
+                <div class="btn-wrapper"><div class="sec-label">BRKEVN</div><button class="btn-grey" onclick="handleInput('6')">6</button></div>
+                <div class="btn-wrapper"><div class="sec-label"></div><button class="btn-black" onclick="handleInput('+')">+</button></div>
+            </div>
+
+            <div class="row cols-5">
+                <div class="btn-wrapper"><div class="sec-label">RCL</div><button class="btn-black" onclick="handleInput('RCL')">RCL</button></div>
+                <div class="btn-wrapper"><div class="sec-label">DATE</div><button class="btn-grey" onclick="handleInput('1')">1</button></div>
+                <div class="btn-wrapper"><div class="sec-label">ICONV</div><button class="btn-grey" onclick="handleInput('2')">2</button></div>
+                <div class="btn-wrapper"><div class="sec-label">PROFIT</div><button class="btn-grey" onclick="handleInput('3')">3</button></div>
+                <div class="btn-wrapper"><div class="sec-label">ANS</div><button class="btn-black" onclick="handleInput('=')">=</button></div>
+            </div>
+
+            <div class="row cols-5">
+                <div class="btn-wrapper"><div class="sec-label">CLR WORK</div><button class="btn-black" onclick="handleInput('CE')">CE/C</button></div>
+                <div class="btn-wrapper"><div class="sec-label">MEM</div><button class="btn-grey" onclick="handleInput('0')">0</button></div>
+                <div class="btn-wrapper"><div class="sec-label">FORMAT</div><button class="btn-grey" onclick="handleInput('.')">.</button></div>
+                <div class="btn-wrapper"><div class="sec-label">RESET</div><button class="btn-grey" onclick="handleInput('NEG')">+/-</button></div>
+                <div class="btn-wrapper"><div class="sec-label"></div><button class="btn-black" onclick="handleInput('*')">×</button></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Use 'touchstart' for faster reaction on iOS, fallback to 'click' for desktop
+        // We handle this by using onclick in HTML but removing the 300ms delay via CSS touch-action
+        
+        const STATE = {
+            screen: "0",
+            displayValue: 0,
+            isSecondFunc: false,
+            waitingForOperand: false,
+            operator: null,
+            firstOperand: null,
+            memory: Array(10).fill(0),
+            decimals: 2,
+            
+            // TVM Registers
+            n: 0,
+            iy: 0,
+            pv: 0,
+            pmt: 0,
+            fv: 0
+        };
+
+        const screenDiv = document.getElementById('display');
+        const ind2nd = document.getElementById('ind-2nd');
+        const indCpt = document.getElementById('ind-cpt');
+
+        function updateDisplay() {
+            let num = parseFloat(STATE.screen);
+            if (isNaN(num)) num = 0;
+            
+            let formatted = num.toLocaleString('en-US', {
+                minimumFractionDigits: STATE.decimals,
+                maximumFractionDigits: STATE.decimals
+            });
+            
+            // Text resizing for small screens if number is huge
+            if (formatted.length > 10) {
+                screenDiv.style.fontSize = "1.5rem";
+            } else {
+                screenDiv.style.fontSize = "2.2rem";
+            }
+
+            screenDiv.innerText = formatted;
+            ind2nd.classList.toggle('active', STATE.isSecondFunc);
+        }
+
+        function handleInput(key) {
+            // Haptic feedback for mobile (if supported)
+            if (navigator.vibrate) navigator.vibrate(10);
+
+            if (key !== 'CPT') indCpt.classList.remove('active');
+
+            if (!isNaN(parseInt(key))) {
+                if (STATE.waitingForOperand) {
+                    STATE.screen = key;
+                    STATE.waitingForOperand = false;
+                } else {
+                    STATE.screen = STATE.screen === "0" ? key : STATE.screen + key;
+                }
+                updateDisplay();
+                return;
+            }
+
+            if (key === '.') {
+                if (STATE.isSecondFunc) {
+                    let newDec = prompt("Enter decimals (0-9):", STATE.decimals);
+                    if (newDec !== null && !isNaN(newDec)) {
+                        STATE.decimals = Math.min(9, Math.max(0, parseInt(newDec)));
+                    }
+                    STATE.isSecondFunc = false;
+                    updateDisplay();
+                    return;
+                }
+                if (STATE.waitingForOperand) {
+                    STATE.screen = "0.";
+                    STATE.waitingForOperand = false;
+                } else if (!STATE.screen.includes('.')) {
+                    STATE.screen += ".";
+                }
+                updateDisplay();
+                return;
+            }
+
+            switch (key) {
+                case 'ON':
+                    resetCalc();
+                    break;
+                case 'CE':
+                    if(STATE.isSecondFunc) {
+                         STATE.n=0; STATE.iy=0; STATE.pv=0; STATE.pmt=0; STATE.fv=0;
+                         alert("TVM Registers Cleared");
+                         STATE.isSecondFunc = false;
+                    } else {
+                        STATE.screen = "0";
+                    }
+                    break;
+                case '2ND':
+                    STATE.isSecondFunc = !STATE.isSecondFunc;
+                    updateDisplay();
+                    return;
+                case 'NEG':
+                    STATE.screen = (parseFloat(STATE.screen) * -1).toString();
+                    break;
+                
+                case '+':
+                case '-':
+                case '*':
+                case '/':
+                    handleOperator(key);
+                    break;
+                case '=':
+                    performCalculation();
+                    STATE.operator = null;
+                    break;
+
+                case 'N': storeTVM('n'); break;
+                case 'IY': storeTVM('iy'); break;
+                case 'PV': storeTVM('pv'); break;
+                case 'PMT': storeTVM('pmt'); break;
+                case 'FV':
+                    if (STATE.isSecondFunc) {
+                        STATE.n=0; STATE.iy=0; STATE.pv=0; STATE.pmt=0; STATE.fv=0;
+                        alert("TVM Cleared");
+                        STATE.isSecondFunc = false;
+                    } else {
+                        storeTVM('fv'); 
+                    }
+                    break;
+
+                case 'CPT':
+                    indCpt.classList.add('active');
+                    STATE.computing = true;
+                    return; 
+            }
+
+            if (key !== '2ND') STATE.isSecondFunc = false;
+            updateDisplay();
+        }
+
+        function handleOperator(nextOperator) {
+            const inputValue = parseFloat(STATE.screen);
+            if (STATE.operator && STATE.waitingForOperand) {
+                STATE.operator = nextOperator;
+                return;
+            }
+            if (STATE.firstOperand == null) {
+                STATE.firstOperand = inputValue;
+            } else if (STATE.operator) {
+                const result = performCalculation();
+                STATE.screen = String(result);
+                STATE.firstOperand = result;
+            }
+            STATE.waitingForOperand = true;
+            STATE.operator = nextOperator;
+        }
+
+        function performCalculation() {
+            const inputValue = parseFloat(STATE.screen);
+            let result = 0;
+            const first = STATE.firstOperand || 0;
+            switch(STATE.operator) {
+                case '+': result = first + inputValue; break;
+                case '-': result = first - inputValue; break;
+                case '*': result = first * inputValue; break;
+                case '/': result = first / inputValue; break;
+                default: result = inputValue;
+            }
+            STATE.screen = String(result);
+            STATE.firstOperand = result;
+            return result;
+        }
+
+        function storeTVM(variable) {
+            if (STATE.computing) {
+                computeTVM(variable);
+                STATE.computing = false;
+                indCpt.classList.remove('active');
+                return;
+            }
+            STATE[variable] = parseFloat(STATE.screen);
+            STATE.waitingForOperand = true; 
+        }
+
+        function computeTVM(target) {
+            let n = STATE.n;
+            let i = STATE.iy / 100;
+            let pv = STATE.pv;
+            let pmt = STATE.pmt;
+            let fv = STATE.fv;
+            let res = 0;
+
+            try {
+                if (target === 'fv') {
+                    if (i === 0) res = -(pv + pmt * n);
+                    else res = -(pv * Math.pow(1+i, n) + pmt * (Math.pow(1+i, n) - 1) / i);
+                    STATE.fv = res;
+                }
+                else if (target === 'pv') {
+                    if (i === 0) res = -(fv + pmt * n);
+                    else res = -(fv / Math.pow(1+i, n) + pmt * (1 - Math.pow(1+i, -n)) / i);
+                    STATE.pv = res;
+                }
+                else if (target === 'pmt') {
+                    let num = pv * Math.pow(1+i, n) + fv;
+                    let den = (Math.pow(1+i, n) - 1) / i;
+                    if (i === 0) den = n; 
+                    res = -(num / den);
+                    STATE.pmt = res;
+                }
+                else if (target === 'n') {
+                    if (i === 0) res = -(pv + fv) / pmt;
+                    else {
+                        let num = pmt - fv * i;
+                        let den = pmt + pv * i;
+                        res = Math.log(num/den) / Math.log(1+i); 
+                    }
+                    STATE.n = res;
+                }
+                
+                STATE.screen = String(res);
+                STATE.waitingForOperand = true;
+            } catch (e) {
+                STATE.screen = "Error";
+            }
+        }
+
+        function resetCalc() {
+            STATE.screen = "0";
+            STATE.firstOperand = null;
+            STATE.operator = null;
+            STATE.waitingForOperand = false;
+            updateDisplay();
+        }
+
+        updateDisplay();
+    </script>
+</body>
+</html>
